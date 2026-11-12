@@ -31,7 +31,9 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-skillscope}:${POSTGRES_PASSWORD:-skillscope_pass}@postgres:5432/${POSTGRES_DB:-skillscope_db}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:1b}
-      AUTO_SEED_DEMO_DATA: ${AUTO_SEED_DEMO_DATA:-true}
+      AUTO_SEED_DEMO_DATA: ${AUTO_SEED_DEMO_DATA:-false}
+      AUTO_SYNC_LIVE_DATA: ${AUTO_SYNC_LIVE_DATA:-true}
+      LIVE_SYNC_INTERVAL_MINUTES: ${LIVE_SYNC_INTERVAL_MINUTES:-360}
       AUTO_TRAIN_MODELS: ${AUTO_TRAIN_MODELS:-true}
     ports:
       - "8000:8000"

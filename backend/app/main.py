@@ -1,4 +1,6 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -7,11 +9,43 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.database.seed import load_synthetic_demo_dataset, seed_skills_and_categories
 from app.database.session import Base, SessionLocal, engine
+from app.models.entities import Job
+from app.services.live_sync import SYNC_STATE, sync_live_sources
 import app.models  # noqa: F401
+
+
+def _run_sync_in_session() -> None:
+    db = SessionLocal()
+    try:
+        sync_live_sources(db=db, sources=["remotive", "arbeitnow"], limit_per_source=80, retrain_models=True)
+    finally:
+        db.close()
+
+
+async def _periodic_live_sync_loop() -> None:
+    """Belirlenen aralıklarla açık API kaynaklarından yeni iş ilanlarını arka planda çeker."""
+    interval_seconds = max(60, settings.LIVE_SYNC_INTERVAL_MINUTES * 60)
+    db = SessionLocal()
+    try:
+        real_count = db.query(Job).filter(Job.is_demo.is_(False)).count()
+    finally:
+        db.close()
+
+    if real_count == 0:
+        await asyncio.to_thread(_run_sync_in_session)
+    else:
+        SYNC_STATE["next_sync_at"] = (
+            datetime.now(timezone.utc) + timedelta(seconds=interval_seconds)
+        ).isoformat()
+
+    while True:
+        await asyncio.sleep(interval_seconds)
+        await asyncio.to_thread(_run_sync_in_session)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    sync_task: asyncio.Task | None = None
     if settings.APP_ENV != "test":
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
@@ -21,7 +55,16 @@ async def lifespan(app: FastAPI):
                 load_synthetic_demo_dataset(db, force_reload=False)
         finally:
             db.close()
-    yield
+
+        if settings.AUTO_SYNC_LIVE_DATA:
+            sync_task = asyncio.create_task(_periodic_live_sync_loop())
+    try:
+        yield
+    finally:
+        if sync_task is not None:
+            sync_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await sync_task
 
 
 app = FastAPI(

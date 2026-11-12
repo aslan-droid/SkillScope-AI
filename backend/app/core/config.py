@@ -17,7 +17,9 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
 
-    AUTO_SEED_DEMO_DATA: bool = True
+    AUTO_SEED_DEMO_DATA: bool = False
+    AUTO_SYNC_LIVE_DATA: bool = True
+    LIVE_SYNC_INTERVAL_MINUTES: int = 360
     AUTO_TRAIN_MODELS: bool = True
 
     OLLAMA_BASE_URL: str = "http://localhost:11434"

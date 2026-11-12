@@ -127,7 +127,52 @@ def import_jobs_from_csv_content(
             "Lütfen 'job_title' (veya 'ilan_basligi') ve 'description' (veya 'aciklama') sütunlarının bulunduğundan emin olun."
         )
 
-    # DataSource bul veya oluştur
+    records: List[Dict[str, Any]] = []
+    for row in reader:
+        records.append(
+            {
+                "job_title": row.get(mapping["job_title"]) or "",
+                "description": row.get(mapping["description"]) or "",
+                "company": row.get(mapping.get("company", ""), ""),
+                "location": row.get(mapping.get("location", ""), ""),
+                "sector": row.get(mapping.get("sector", ""), ""),
+                "employment_type": row.get(mapping.get("employment_type", ""), ""),
+                "remote_type": row.get(mapping.get("remote_type", "")),
+                "salary_min": row.get(mapping.get("salary_min", "")),
+                "salary_max": row.get(mapping.get("salary_max", "")),
+                "currency": row.get(mapping.get("currency", ""), ""),
+                "posted_date": row.get(mapping.get("posted_date", "")),
+                "source_url": row.get(mapping.get("source_url", ""), ""),
+                "source_name": row.get(mapping.get("source_name", ""), "") or source_name,
+            }
+        )
+
+    optional_columns = [col for col in COLUMN_ALIASES.keys() if col not in mapping]
+    return ingest_job_records(
+        db=db,
+        records=records,
+        filename=filename,
+        source_name=source_name,
+        source_type=source_type,
+        license_name=license_name,
+        is_demo=is_demo,
+        mapped_columns=mapping,
+        missing_optional_columns=optional_columns,
+    )
+
+
+def ingest_job_records(
+    db: Session,
+    records: List[Dict[str, Any]],
+    filename: str,
+    source_name: str,
+    source_type: str = "PUBLIC_API",
+    license_name: str = "Açık API / Kamu Verisi",
+    is_demo: bool = False,
+    mapped_columns: Optional[Dict[str, str]] = None,
+    missing_optional_columns: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Normalize edilmiş iş ilanı kayıtlarını doğrular, mükerrerleri eler, NLP ile etiketler ve DB'ye yazar."""
     data_source = db.query(DataSource).filter(DataSource.name == source_name).first()
     if not data_source:
         data_source = DataSource(
@@ -138,7 +183,7 @@ def import_jobs_from_csv_content(
             description=(
                 "Sistem özelliklerini göstermek için oluşturulmuş açık etiketli sentetik demo veri kaynağı."
                 if is_demo
-                else "Kullanıcı veya açık veri seti üzerinden içe aktarılan veri kaynağı."
+                else "Kullanıcı veya açık veri seti/API üzerinden içe aktarılan veri kaynağı."
             ),
         )
         db.add(data_source)
@@ -166,12 +211,10 @@ def import_jobs_from_csv_content(
     extracted_skill_links = 0
     row_errors: List[str] = []
 
-    optional_columns = [col for col in COLUMN_ALIASES.keys() if col not in mapping]
-
-    for idx, row in enumerate(reader, start=1):
+    for idx, row in enumerate(records, start=1):
         total_rows += 1
-        raw_title = (row.get(mapping["job_title"]) or "").strip()
-        raw_desc = (row.get(mapping["description"]) or "").strip()
+        raw_title = str(row.get("job_title") or "").strip()
+        raw_desc = str(row.get("description") or "").strip()
 
         if len(raw_title) < 2 or len(raw_desc) < 10:
             invalid_rows += 1
@@ -179,20 +222,21 @@ def import_jobs_from_csv_content(
                 row_errors.append(f"Satır {idx}: Başlık çok kısa veya açıklama 10 karakterden az.")
             continue
 
-        raw_company = (row.get(mapping.get("company", ""), "") or "Belirtilmemiş").strip() or "Belirtilmemiş"
-        raw_location = (row.get(mapping.get("location", ""), "") or "İstanbul").strip() or "İstanbul"
-        raw_sector = (row.get(mapping.get("sector", ""), "") or "Teknoloji").strip() or "Teknoloji"
-        raw_emp = (row.get(mapping.get("employment_type", ""), "") or "Tam Zamanlı").strip() or "Tam Zamanlı"
-        raw_remote = _normalize_remote_type(row.get(mapping.get("remote_type", "")), raw_desc)
-        salary_min = _parse_float(row.get(mapping.get("salary_min", "")))
-        salary_max = _parse_float(row.get(mapping.get("salary_max", "")))
+        raw_company = str(row.get("company") or "Belirtilmemiş").strip() or "Belirtilmemiş"
+        raw_location = str(row.get("location") or "Global / Uzaktan").strip() or "Global / Uzaktan"
+        raw_sector = str(row.get("sector") or "Teknoloji").strip() or "Teknoloji"
+        raw_emp = str(row.get("employment_type") or "Tam Zamanlı").strip() or "Tam Zamanlı"
+        raw_remote = _normalize_remote_type(row.get("remote_type"), raw_desc)
+        salary_min = _parse_float(row.get("salary_min"))
+        salary_max = _parse_float(row.get("salary_max"))
         if salary_min and salary_max and salary_min > salary_max:
             salary_min, salary_max = salary_max, salary_min
 
-        currency = (row.get(mapping.get("currency", ""), "") or "TRY").strip().upper() or "TRY"
-        posted_dt = _parse_date(row.get(mapping.get("posted_date", "")))
-        source_url = (row.get(mapping.get("source_url", ""), "") or "").strip() or None
-        row_source = (row.get(mapping.get("source_name", ""), "") or source_name).strip() or source_name
+        currency = str(row.get("currency") or "TRY").strip().upper() or "TRY"
+        posted_raw = row.get("posted_date")
+        posted_dt = posted_raw if isinstance(posted_raw, datetime) else _parse_date(posted_raw)
+        source_url = str(row.get("source_url") or "").strip() or None
+        row_source = str(row.get("source_name") or source_name).strip() or source_name
 
         content_hash = compute_job_fingerprint(raw_title, raw_company, raw_location, raw_desc)
         if content_hash in existing_hashes:
@@ -210,7 +254,17 @@ def import_jobs_from_csv_content(
         pred_cat_name = infer_reference_category(raw_title, raw_desc, raw_sector)
         cat_obj = category_cache.get(pred_cat_name)
         if not cat_obj:
-            slug = pred_cat_name.lower().replace(" ", "-").replace("ı", "i").replace("ğ", "g").replace("ü", "u").replace("ş", "s").replace("ö", "o").replace("ç", "c").replace("â", "a")
+            slug = (
+                pred_cat_name.lower()
+                .replace(" ", "-")
+                .replace("ı", "i")
+                .replace("ğ", "g")
+                .replace("ü", "u")
+                .replace("ş", "s")
+                .replace("ö", "o")
+                .replace("ç", "c")
+                .replace("â", "a")
+            )
             cat_obj = Category(name=pred_cat_name, slug=slug, description=f"{pred_cat_name} iş ilanları kategorisi")
             db.add(cat_obj)
             db.flush()
@@ -259,10 +313,18 @@ def import_jobs_from_csv_content(
 
         imported_rows += 1
 
-    status = "VALIDATED" if imported_rows > 0 and invalid_rows == 0 else ("PARTIAL" if imported_rows > 0 else "FAILED")
+    if imported_rows > 0 and invalid_rows == 0:
+        status = "VALIDATED"
+    elif imported_rows == 0 and duplicate_rows > 0 and invalid_rows == 0:
+        status = "VALIDATED"
+    elif imported_rows > 0:
+        status = "PARTIAL"
+    else:
+        status = "FAILED"
+
     summary_info = {
-        "mapped_columns": mapping,
-        "missing_optional_columns": optional_columns,
+        "mapped_columns": mapped_columns or {},
+        "missing_optional_columns": missing_optional_columns or [],
         "extracted_skill_links": extracted_skill_links,
         "row_errors": row_errors,
     }

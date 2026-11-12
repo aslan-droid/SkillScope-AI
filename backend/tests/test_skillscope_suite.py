@@ -184,3 +184,68 @@ def test_ai_assistant_evidence_and_fallback_mechanism(client: TestClient):
     assert ans["evidence"]["sample_size"] > 0
     assert ans["evidence"]["data_period"] != ""
     assert ans["engine_used"] in ("RULE_AND_STATISTICAL_FALLBACK", f"OLLAMA_LOCAL_LLM ({ans['ollama_status']['configured_model']})")
+
+
+def test_live_sync_and_demo_purge(client, db_session):
+    import httpx
+    from app.services.live_sync import sync_live_sources
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        if "remotive.com" in str(request.url):
+            return httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        {
+                            "title": "Senior Python Backend Engineer",
+                            "company_name": "RemoteTech",
+                            "category": "Software Development",
+                            "tags": ["Python", "Docker", "PostgreSQL"],
+                            "job_type": "full_time",
+                            "publication_date": "2026-10-15T10:00:00",
+                            "candidate_required_location": "Worldwide",
+                            "salary": "$80,000 - $110,000",
+                            "url": "https://remotive.com/example/1",
+                            "description": "<p>Looking for Python, Docker, PostgreSQL, and Git expertise.</p>",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "title": "Data Analyst",
+                        "company_name": "EuroData GmbH",
+                        "description": "<p>SQL, Power BI, Python and Pandas required for analytics.</p>",
+                        "remote": True,
+                        "url": "https://www.arbeitnow.com/example/1",
+                        "tags": ["SQL", "Power BI"],
+                        "job_types": ["full time"],
+                        "location": "Berlin",
+                        "created_at": 1760000000,
+                    }
+                ]
+            },
+        )
+
+    mock_client = httpx.Client(transport=httpx.MockTransport(mock_handler))
+    sync_res = sync_live_sources(db_session, sources=["remotive", "arbeitnow"], retrain_models=False, client=mock_client)
+    assert sync_res["total_imported"] == 2
+    assert sync_res["total_skill_links"] >= 4
+
+    # Tekrar çalıştırıldığında SHA-256 ile mükerrerleri atlamalı
+    sync_res_2 = sync_live_sources(db_session, sources=["remotive", "arbeitnow"], retrain_models=False, client=mock_client)
+    assert sync_res_2["total_imported"] == 0
+    assert sync_res_2["total_duplicates"] == 2
+
+    # Demo veriyi temizleme uç noktası
+    purge_res = client.delete("/api/v1/datasets/demo-data")
+    assert purge_res.status_code == 200
+    assert purge_res.json()["status"] == "purged"
+
+    status_res = client.get("/api/v1/datasets/sync-status")
+    assert status_res.status_code == 200
+    assert status_res.json()["demo_jobs_count"] == 0
+    assert status_res.json()["real_jobs_count"] >= 2

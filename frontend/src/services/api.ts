@@ -140,6 +140,40 @@ export const api = {
 
   listDatasets: () => request<DatasetItem[]>('/datasets'),
 
+  getSyncStatus: () =>
+    request<{
+      auto_sync_enabled: boolean;
+      interval_minutes: number;
+      real_jobs_count: number;
+      demo_jobs_count: number;
+      is_syncing: boolean;
+      last_sync_at: string | null;
+      next_sync_at: string | null;
+      last_sync_status: string;
+      last_sync_summary: any;
+    }>('/datasets/sync-status'),
+
+  syncLiveSources: (sources: string[] = ['remotive', 'arbeitnow'], limitPerSource = 80) =>
+    request<any>('/datasets/sync-live', {
+      method: 'POST',
+      body: JSON.stringify({
+        sources,
+        limit_per_source: limitPerSource,
+        retrain_models: true,
+      }),
+    }),
+
+  purgeDemoData: () =>
+    request<{
+      status: string;
+      deleted_jobs: number;
+      deleted_job_skills: number;
+      deleted_imports: number;
+      deleted_sources: number;
+    }>('/datasets/demo-data', {
+      method: 'DELETE',
+    }),
+
   uploadDatasetCsv: (file: File, sourceName: string, licenseName: string, columnMappingJson?: string) => {
     const formData = new FormData();
     formData.append('file', file);

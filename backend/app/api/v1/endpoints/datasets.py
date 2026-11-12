@@ -1,6 +1,7 @@
 import json
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -8,8 +9,15 @@ from app.database.seed import load_synthetic_demo_dataset
 from app.database.session import get_db
 from app.models.entities import DatasetImport
 from app.services.csv_importer import decode_csv_bytes, import_jobs_from_csv_content
+from app.services.live_sync import get_sync_status, purge_demo_data, sync_live_sources
 
 router = APIRouter()
+
+
+class LiveSyncRequest(BaseModel):
+    sources: Optional[List[str]] = Field(default=["remotive", "arbeitnow"])
+    limit_per_source: int = Field(default=80, ge=10, le=200)
+    retrain_models: bool = True
 
 
 @router.get("", summary="Yüklenen tüm veri setlerini ve doğrulama durumlarını listeler")
@@ -83,6 +91,30 @@ async def upload_csv_dataset(
         return result
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/sync-status", summary="Canlı açık API senkronizasyon durumunu ve gerçek/demo ilan sayılarını döndürür")
+def read_sync_status(db: Session = Depends(get_db)):
+    return get_sync_status(db)
+
+
+@router.post("/sync-live", summary="Remotive ve Arbeitnow açık API'lerinden gerçek iş ilanlarını hemen çeker")
+def trigger_live_sync(
+    payload: Optional[LiveSyncRequest] = None,
+    db: Session = Depends(get_db),
+):
+    req = payload or LiveSyncRequest()
+    return sync_live_sources(
+        db=db,
+        sources=req.sources,
+        limit_per_source=req.limit_per_source,
+        retrain_models=req.retrain_models,
+    )
+
+
+@router.delete("/demo-data", summary="Veritabanındaki tüm sentetik demo ilanları ve demo kayıtlarını kalıcı olarak siler")
+def clear_demo_data(db: Session = Depends(get_db)):
+    return purge_demo_data(db)
 
 
 @router.post("/load-demo", summary="Açıkça sentetik olarak etiketlenmiş başlangıç demo veri setini yükler veya sıfırlar")
