@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# Database & local data
+*.db
+*.sqlite3
+pgdata/
+data/raw/*.csv
+data/processed/*.csv
+!data/sample/*.csv
+
+# Machine Learning runtime artifacts (keep structure, ignore large temporary dumps)
+ml/models/*.joblib
+ml/models/*.pkl
+!ml/models/.gitkeep
+
+# Frontend / Node
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+coverage/
+.nyc_output/
+
+# Testing & caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
