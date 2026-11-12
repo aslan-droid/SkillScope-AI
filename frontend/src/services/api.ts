@@ -153,7 +153,7 @@ export const api = {
       last_sync_summary: any;
     }>('/datasets/sync-status'),
 
-  syncLiveSources: (sources: string[] = ['remotive', 'arbeitnow'], limitPerSource = 80) =>
+  syncLiveSources: (sources: string[] = ['lever_turkey', 'remotive', 'arbeitnow'], limitPerSource = 80) =>
     request<any>('/datasets/sync-live', {
       method: 'POST',
       body: JSON.stringify({

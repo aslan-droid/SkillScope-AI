@@ -17,7 +17,12 @@ import app.models  # noqa: F401
 def _run_sync_in_session() -> None:
     db = SessionLocal()
     try:
-        sync_live_sources(db=db, sources=["remotive", "arbeitnow"], limit_per_source=80, retrain_models=True)
+        sync_live_sources(
+            db=db,
+            sources=["lever_turkey", "remotive", "arbeitnow"],
+            limit_per_source=80,
+            retrain_models=True,
+        )
     finally:
         db.close()
 

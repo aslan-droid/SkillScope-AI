@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  Activity,
   BarChart3,
   Bot,
   Briefcase,
@@ -16,11 +17,13 @@ import {
   X,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
+import { api } from '../services/api';
 
 interface NavItem {
   to: string;
   label: string;
   subtitle: string;
+  group: 'Piyasa & Keşif' | 'Kariyer & AI' | 'Veri & Modeller';
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -29,56 +32,82 @@ const NAV_ITEMS: NavItem[] = [
     to: '/',
     label: 'Genel Bakış',
     subtitle: 'Canlı İş Piyasası Dashboard',
+    group: 'Piyasa & Keşif',
     icon: LayoutDashboard,
   },
   {
     to: '/market',
     label: 'İş Piyasası Analizi',
     subtitle: 'Şehir, Pozisyon, Sektör & Maaş',
+    group: 'Piyasa & Keşif',
     icon: BarChart3,
   },
   {
     to: '/skills',
     label: 'Beceri Keşfetme',
     subtitle: 'Birliktelik & Talep Trendleri',
+    group: 'Piyasa & Keşif',
     icon: Compass,
   },
   {
     to: '/career',
     label: 'Kariyer Eşleştirme',
     subtitle: 'CV Analizi & Yol Haritası',
+    group: 'Kariyer & AI',
     icon: Briefcase,
   },
   {
     to: '/assistant',
     label: 'AI Kariyer Asistanı',
     subtitle: 'Veriye Dayalı Akıllı Yanıtlar',
+    group: 'Kariyer & AI',
     icon: Bot,
   },
   {
     to: '/datasets',
     label: 'Veri Yönetimi',
-    subtitle: 'CSV İçe Aktarma & Doğrulama',
+    subtitle: 'Canlı API & CSV İçe Aktarma',
+    group: 'Veri & Modeller',
     icon: Database,
   },
   {
     to: '/models',
     label: 'Model Performansı',
     subtitle: 'MAE, RMSE, F1 & Tahminleme',
+    group: 'Veri & Modeller',
     icon: Cpu,
   },
   {
     to: '/about',
     label: 'Hakkında',
     subtitle: 'Mimari, Veri & Sınırlılıklar',
+    group: 'Veri & Modeller',
     icon: Info,
   },
 ];
 
+const NAV_GROUPS: Array<NavItem['group']> = ['Piyasa & Keşif', 'Kariyer & AI', 'Veri & Modeller'];
+
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [liveJobsCount, setLiveJobsCount] = useState<number | null>(null);
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+
+  useEffect(() => {
+    let mounted = true;
+    api
+      .getSyncStatus()
+      .then((res) => {
+        if (mounted) setLiveJobsCount(res.real_jobs_count);
+      })
+      .catch(() => {
+        /* Başlangıçta erişilemezse sessiz geç */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [location.pathname]);
 
   const currentNav = NAV_ITEMS.find((item) =>
     item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)
@@ -86,6 +115,12 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-navy-950 text-slate-900 dark:text-slate-100">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:px-4 focus:py-2 focus:rounded-xl focus:bg-brand-purple focus:text-white focus:text-xs focus:font-semibold"
+      >
+        Ana içeriğe geç
+      </a>
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
@@ -125,34 +160,41 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
           </button>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 px-3 py-5 space-y-1.5 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) =>
-                  `group flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                    isActive
-                      ? 'bg-gradient-to-r from-brand-purple/90 to-indigo-600/80 text-white font-semibold shadow-md shadow-indigo-950/50'
-                      : 'text-slate-300 hover:bg-navy-800/90 hover:text-white'
-                  }`
-                }
-              >
-                <Icon className="h-4 w-4 shrink-0 text-brand-teal group-hover:scale-110 transition-transform" />
-                <div className="truncate">
-                  <div className="leading-tight">{item.label}</div>
-                  <div className="text-[11px] text-slate-400 group-hover:text-slate-200 truncate">
-                    {item.subtitle}
-                  </div>
-                </div>
-              </NavLink>
-            );
-          })}
+        {/* Navigation Links (Hick & Gestalt Gruplandırma) */}
+        <nav aria-label="Ana navigasyon" className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+          {NAV_GROUPS.map((groupName) => (
+            <div key={groupName} className="space-y-1">
+              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400/90">
+                {groupName}
+              </div>
+              {NAV_ITEMS.filter((item) => item.group === groupName).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3.5 px-3.5 min-h-[44px] py-2 rounded-xl text-sm transition-all ${
+                        isActive
+                          ? 'bg-gradient-to-r from-brand-purple/95 to-indigo-600/85 text-white font-semibold shadow-md shadow-indigo-950/50 border-l-2 border-brand-teal'
+                          : 'text-slate-300 hover:bg-navy-800/90 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-brand-teal group-hover:scale-110 transition-transform" />
+                    <div className="truncate">
+                      <div className="leading-tight">{item.label}</div>
+                      <div className="text-[11px] text-slate-400 group-hover:text-slate-200 truncate">
+                        {item.subtitle}
+                      </div>
+                    </div>
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Zero-Budget & Privacy Badge */}
@@ -190,10 +232,21 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
           </div>
 
           <div className="flex items-center gap-3">
+            {liveJobsCount !== null && (
+              <div
+                className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-xs font-medium tabular-nums"
+                title="Veritabanındaki doğrulanmış gerçek iş ilanı sayısı"
+              >
+                <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                <span>{liveJobsCount} Canlı İlan</span>
+              </div>
+            )}
+
             <button
               onClick={toggleTheme}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-navy-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-brand-purple transition"
+              className="inline-flex items-center gap-2 px-3 min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-navy-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-brand-purple transition"
               title="Temayı Değiştir"
+              aria-label="Aydınlık veya koyu temayı değiştir"
             >
               {theme === 'dark' ? (
                 <>
@@ -221,7 +274,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         </header>
 
         {/* Page Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto space-y-6">
+        <main id="main-content" className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto space-y-6">
           {children}
         </main>
       </div>

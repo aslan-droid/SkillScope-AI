@@ -87,35 +87,57 @@ export const DashboardPage: React.FC = () => {
     <div className="space-y-6">
       <SyntheticDataBanner demoCount={data.demo_jobs_count} realCount={data.real_jobs_count} />
 
-      {/* Top Controls Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-navy-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
-        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-          <Calendar className="h-4 w-4 text-brand-purple" />
-          <span>
-            Veri Kapsamı:{' '}
-            <strong className="text-slate-900 dark:text-white">
-              {data.date_range.min_date} — {data.date_range.max_date}
-            </strong>
-          </span>
-        </div>
+      {/* Top Controls Bar & İBE Hızlı Akış */}
+      <div className="rounded-2xl bg-gradient-to-r from-white via-white to-indigo-50/60 dark:from-navy-900 dark:via-navy-900 dark:to-indigo-950/30 p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <div className="p-2 rounded-xl bg-brand-purple/10 text-brand-purple">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-400">
+                Aktif Veri Penceresi
+              </div>
+              <strong className="text-sm text-slate-900 dark:text-white tabular-nums">
+                {data.date_range.min_date} — {data.date_range.max_date}
+              </strong>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <label className="inline-flex items-center gap-2 text-xs font-medium cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeDemo}
-              onChange={(e) => setIncludeDemo(e.target.checked)}
-              className="rounded border-slate-300 text-brand-purple focus:ring-brand-purple"
-            />
-            <span>Sentetik Demo Verisini Dahil Et ({data.demo_jobs_count} İlan)</span>
-          </label>
-          <button
-            onClick={() => navigate('/datasets')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand-purple/10 text-brand-purple dark:bg-brand-purple/20 dark:text-indigo-300 hover:bg-brand-purple hover:text-white transition"
-          >
-            <span>CSV Yükle</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {data.demo_jobs_count > 0 && (
+              <label className="inline-flex items-center gap-2 min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeDemo}
+                  onChange={(e) => setIncludeDemo(e.target.checked)}
+                  className="rounded border-slate-300 text-brand-purple focus:ring-brand-purple"
+                />
+                <span>Demo Verisi Dahil ({data.demo_jobs_count})</span>
+              </label>
+            )}
+            <button
+              onClick={() => navigate('/market')}
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-navy-800 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-navy-700 transition"
+            >
+              <MapPin className="h-3.5 w-3.5 text-brand-teal" />
+              <span>Şehir & Piyasa Filtrele</span>
+            </button>
+            <button
+              onClick={() => navigate('/career')}
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-xl text-xs font-semibold bg-brand-purple text-white hover:bg-indigo-600 shadow-xs transition"
+            >
+              <Briefcase className="h-3.5 w-3.5" />
+              <span>CV Analizi & Yol Haritası</span>
+            </button>
+            <button
+              onClick={() => navigate('/datasets')}
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-xl text-xs font-semibold bg-brand-purple/10 text-brand-purple dark:bg-brand-purple/20 dark:text-indigo-300 hover:bg-brand-purple hover:text-white transition"
+            >
+              <span>Veri Yönetimi</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -130,7 +152,9 @@ export const DashboardPage: React.FC = () => {
               <Briefcase className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-3 text-3xl font-extrabold text-slate-900 dark:text-white">{data.total_jobs}</div>
+          <div className="mt-3 text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
+            {data.total_jobs}
+          </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {data.unique_companies} farklı kurum • {data.real_jobs_count} gerçek / {data.demo_jobs_count} demo
           </p>

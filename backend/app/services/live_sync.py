@@ -15,6 +15,12 @@ from app.services.csv_importer import ingest_job_records
 
 REMOTIVE_API_URL = "https://remotive.com/api/remote-jobs"
 ARBEITNOW_API_URL = "https://www.arbeitnow.com/api/job-board-api"
+LEVER_TURKEY_COMPANIES = [
+    ("trendyol", "Trendyol", "E-Ticaret & Teknoloji"),
+    ("dreamgames", "Dream Games", "Oyun & Mobil Teknoloji"),
+    ("commencis", "Commencis", "Yazılım & Dijital Ürün"),
+    ("iyzico", "iyzico", "Fintech"),
+]
 
 SYNC_STATE: Dict[str, Any] = {
     "is_syncing": False,
@@ -69,6 +75,115 @@ def _parse_salary_text(salary_text: Optional[str]) -> Tuple[Optional[float], Opt
     if len(values) == 1:
         return values[0], values[0], currency
     return min(values[0], values[1]), max(values[0], values[1]), currency
+
+
+def _normalize_location_tr(raw_loc: Optional[str]) -> str:
+    """Şehir ve konum adlarını Türkiye odaklı tutarlı biçime dönüştürür."""
+    val = (raw_loc or "").strip()
+    low = val.lower()
+    if "istanbul" in low or "i̇stanbul" in low or "maslak" in low or "esentepe" in low:
+        return "İstanbul"
+    if "ankara" in low:
+        return "Ankara"
+    if "izmir" in low or "i̇zmir" in low:
+        return "İzmir"
+    if "bursa" in low:
+        return "Bursa"
+    if "antalya" in low:
+        return "Antalya"
+    if "turkey" in low or "türkiye" in low:
+        return "Türkiye (Uzaktan / Hibrit)"
+    return val or "Global / Uzaktan"
+
+
+def _is_turkey_or_remote_lever(item: Dict[str, Any]) -> bool:
+    country = (item.get("country") or "").upper()
+    cats = item.get("categories") or {}
+    loc = str(cats.get("location") or "").lower()
+    all_locs = " ".join(str(x).lower() for x in (cats.get("allLocations") or []))
+    combined = f"{loc} {all_locs}"
+    if country == "TR":
+        return True
+    return any(
+        k in combined
+        for k in ("istanbul", "i̇stanbul", "ankara", "izmir", "i̇zmir", "turkey", "türkiye", "bursa", "antalya")
+    )
+
+
+def fetch_lever_turkey_jobs(limit: int = 120, client: Optional[httpx.Client] = None) -> List[Dict[str, Any]]:
+    """Türkiye merkezli teknoloji şirketlerinin kamuya açık Lever kariyer API'lerinden ilan çeker."""
+    headers = {"User-Agent": "SkillScopeAI/1.0 (+https://github.com/aslan-droid/SkillScope-AI)"}
+    own_client = client is None
+    http = client or httpx.Client(timeout=20.0, headers=headers)
+    records: List[Dict[str, Any]] = []
+    try:
+        for slug, company_name, sector_name in LEVER_TURKEY_COMPANIES:
+            if len(records) >= limit:
+                break
+            try:
+                resp = http.get(f"https://api.lever.co/v0/postings/{slug}", params={"mode": "json"})
+                if resp.status_code != 200:
+                    continue
+                items = resp.json()
+                if not isinstance(items, list):
+                    continue
+            except Exception:
+                continue
+
+            for item in items:
+                if len(records) >= limit:
+                    break
+                if not _is_turkey_or_remote_lever(item):
+                    continue
+                title = (item.get("text") or "").strip()
+                desc_parts = [item.get("descriptionPlain") or ""]
+                for lst in item.get("lists") or []:
+                    if isinstance(lst, dict):
+                        desc_parts.append(str(lst.get("text") or ""))
+                        desc_parts.append(_strip_html(str(lst.get("content") or "")))
+                desc_parts.append(item.get("additionalPlain") or "")
+                desc = re.sub(r"\s+", " ", " ".join(p for p in desc_parts if p)).strip()
+                if len(title) < 2 or len(desc) < 10:
+                    continue
+
+                cats = item.get("categories") or {}
+                raw_loc = cats.get("location") or "İstanbul"
+                workplace = (item.get("workplaceType") or "").lower()
+                if workplace == "remote":
+                    remote_type = "Uzaktan"
+                elif workplace == "hybrid":
+                    remote_type = "Hibrit"
+                else:
+                    remote_type = "Ofisten"
+
+                created_ms = item.get("createdAt")
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                posted_dt = now_utc
+                if isinstance(created_ms, (int, float)) and created_ms > 0:
+                    parsed = datetime.fromtimestamp(created_ms / 1000.0, tz=timezone.utc).replace(tzinfo=None)
+                    posted_dt = min(parsed, now_utc)
+
+                records.append(
+                    {
+                        "job_title": title,
+                        "description": desc,
+                        "company": company_name,
+                        "location": _normalize_location_tr(raw_loc),
+                        "sector": cats.get("department") or sector_name,
+                        "employment_type": _map_job_type(cats.get("commitment")),
+                        "remote_type": remote_type,
+                        "salary_min": None,
+                        "salary_max": None,
+                        "currency": "TRY",
+                        "posted_date": posted_dt,
+                        "source_url": item.get("hostedUrl"),
+                        "source_name": f"Lever Public API ({company_name})",
+                    }
+                )
+    finally:
+        if own_client:
+            http.close()
+    return records
 
 
 def _map_job_type(raw_type: Optional[str]) -> str:
@@ -140,7 +255,15 @@ def fetch_arbeitnow_jobs(limit: int = 100, client: Optional[httpx.Client] = None
             http.close()
 
     records: List[Dict[str, Any]] = []
-    for item in payload.get("data", [])[:limit]:
+    for item in payload.get("data", []):
+        if len(records) >= limit:
+            break
+        is_remote = bool(item.get("remote"))
+        loc_raw = (item.get("location") or "").strip()
+        is_tr = any(k in loc_raw.lower() for k in ("turkey", "türkiye", "istanbul", "ankara", "izmir"))
+        if not is_remote and not is_tr:
+            continue
+
         title = (item.get("title") or "").strip()
         tags = item.get("tags") or []
         tag_text = f" Etiketler: {', '.join(tags)}." if isinstance(tags, list) and tags else ""
@@ -157,14 +280,13 @@ def fetch_arbeitnow_jobs(limit: int = 100, client: Optional[httpx.Client] = None
 
         job_types = item.get("job_types") or []
         emp_raw = job_types[0] if isinstance(job_types, list) and job_types else ""
-        is_remote = bool(item.get("remote"))
 
         records.append(
             {
                 "job_title": title,
                 "description": desc,
                 "company": (item.get("company_name") or "Arbeitnow İşvereni").strip(),
-                "location": (item.get("location") or "Avrupa / Uzaktan").strip(),
+                "location": _normalize_location_tr(loc_raw) if is_tr else f"{loc_raw or 'Avrupa'} (Uzaktan)",
                 "sector": "Teknoloji & Yazılım",
                 "employment_type": _map_job_type(emp_raw),
                 "remote_type": "Uzaktan" if is_remote else "Ofisten",
@@ -193,7 +315,7 @@ def sync_live_sources(
     if SYNC_STATE["is_syncing"]:
         return {"status": "already_running", "sync_state": SYNC_STATE}
 
-    selected = [s.lower() for s in (sources or ["remotive", "arbeitnow"])]
+    selected = [s.lower() for s in (sources or ["lever_turkey", "remotive", "arbeitnow"])]
     SYNC_STATE["is_syncing"] = True
     started_at = datetime.now(timezone.utc)
     source_results: List[Dict[str, Any]] = []
@@ -204,6 +326,12 @@ def sync_live_sources(
 
     try:
         fetchers = {
+            "lever_turkey": (
+                "Türkiye Teknoloji Şirketleri (Lever API)",
+                "Lever Public Postings API (Trendyol, Dream Games, Commencis, iyzico)",
+                f"turkey_lever_sync_{started_at.strftime('%Y%m%d_%H%M')}.json",
+                fetch_lever_turkey_jobs,
+            ),
             "remotive": (
                 "Remotive Public API",
                 "Remotive Public API (Attribution Required)",

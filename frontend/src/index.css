@@ -4,8 +4,21 @@
 
 @layer base {
   body {
-    @apply transition-colors duration-200;
+    @apply transition-colors duration-200 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-brand-purple/75 ring-offset-2 ring-offset-white dark:ring-offset-navy-950;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Custom sleek scrollbar */

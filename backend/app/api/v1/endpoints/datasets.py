@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 class LiveSyncRequest(BaseModel):
-    sources: Optional[List[str]] = Field(default=["remotive", "arbeitnow"])
+    sources: Optional[List[str]] = Field(default=["lever_turkey", "remotive", "arbeitnow"])
     limit_per_source: int = Field(default=80, ge=10, le=200)
     retrain_models: bool = True
 

@@ -96,7 +96,7 @@ export const DataManagementPage: React.FC = () => {
     setError(null);
     setSuccessMsg(null);
     try {
-      const res = await api.syncLiveSources(['remotive', 'arbeitnow'], 80);
+      const res = await api.syncLiveSources(['lever_turkey', 'remotive', 'arbeitnow'], 80);
       setSuccessMsg(
         `Canlı API senkronizasyonu tamamlandı: ${res.total_imported} yeni gerçek ilan eklendi, ${res.total_duplicates} mükerrer atlandı, ${res.total_skill_links} beceri eşleşmesi çıkarıldı.`
       );
@@ -152,7 +152,7 @@ export const DataManagementPage: React.FC = () => {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Canlı Açık API Senkronizasyonu (Remotive & Arbeitnow)
+                  Canlı Açık API Senkronizasyonu (Türkiye Lever + Remotive + Arbeitnow)
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                   {syncStatus?.auto_sync_enabled
