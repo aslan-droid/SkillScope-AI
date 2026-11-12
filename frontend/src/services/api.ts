@@ -4,6 +4,7 @@ import type {
   CVAnalysisResult,
   DashboardSummary,
   DatasetItem,
+  JobSummaryItem,
   MarketAnalytics,
   ModelVersionItem,
   SkillCatalogItem,
@@ -48,6 +49,28 @@ export const api = {
       jobs_count: number;
       skills_count: number;
     }>('/health'),
+
+  listJobs: (params: {
+    page?: number;
+    page_size?: number;
+    city?: string;
+    role?: string;
+    sector?: string;
+    remote_type?: string;
+    skill?: string;
+    search?: string;
+    include_demo?: boolean;
+  }) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== '' && v !== 'Tümü') {
+        search.set(k, String(v));
+      }
+    });
+    return request<{ total: number; page: number; page_size: number; items: JobSummaryItem[] }>(
+      `/jobs?${search.toString()}`
+    );
+  },
 
   getDashboardSummary: (includeDemo = true) =>
     request<DashboardSummary>(`/analytics/dashboard?include_demo=${includeDemo}`),

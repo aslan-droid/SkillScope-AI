@@ -138,17 +138,17 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         {/* Brand Header */}
         <div className="h-18 px-6 py-5 flex items-center justify-between border-b border-slate-800/80">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-purple to-brand-teal flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="h-9 w-9 rounded-lg bg-brand-purple flex items-center justify-center shadow-sm">
+              <Compass className="h-5 w-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-base tracking-tight text-white">SkillScope</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-teal/20 text-brand-teal border border-brand-teal/30">
-                  AI
+                <span className="font-display font-bold text-base tracking-tight text-white">SkillScope</span>
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  v1.0
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">Kariyer & Piyasa Zekâsı</p>
+              <p className="text-[11px] text-slate-400">İş Piyasası & Kariyer Analizi</p>
             </div>
           </div>
           <button
@@ -176,10 +176,10 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                     end={item.to === '/'}
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
-                      `group flex items-center gap-3.5 px-3.5 min-h-[44px] py-2 rounded-xl text-sm transition-all ${
+                      `group flex items-center gap-3.5 px-3.5 min-h-[44px] py-2 rounded-xl text-sm transition-colors ${
                         isActive
-                          ? 'bg-gradient-to-r from-brand-purple/95 to-indigo-600/85 text-white font-semibold shadow-md shadow-indigo-950/50 border-l-2 border-brand-teal'
-                          : 'text-slate-300 hover:bg-navy-800/90 hover:text-white'
+                          ? 'bg-slate-800/95 text-white font-semibold border-l-2 border-brand-purple'
+                          : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                       }`
                     }
                   >
@@ -262,7 +262,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
             </button>
 
             <div className="hidden md:flex items-center gap-2.5 pl-3 border-l border-slate-200 dark:border-slate-800">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-brand-purple to-brand-teal text-white font-bold text-xs flex items-center justify-center">
+              <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 text-slate-100 font-semibold text-xs flex items-center justify-center">
                 KA
               </div>
               <div className="text-xs">

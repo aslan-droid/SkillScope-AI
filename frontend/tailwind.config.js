@@ -9,18 +9,20 @@ export default {
     extend: {
       colors: {
         navy: {
-          950: '#060B19',
-          900: '#0B132B',
-          800: '#1C2541',
-          700: '#27345C',
+          950: '#090D16',
+          900: '#0F172A',
+          800: '#1E293B',
+          700: '#334155',
         },
         brand: {
-          purple: '#6366F1',
-          teal: '#06B6D4',
+          purple: '#2563EB',
+          teal: '#0D9488',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },
   },

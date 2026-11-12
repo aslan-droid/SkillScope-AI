@@ -243,7 +243,7 @@ def analyze_cv_and_match(
         )
 
     # Kullanıcının mevcut becerileriyle en çok eşleşen iş ilanları
-    candidate_jobs = db.query(Job).order_by(Job.posted_date.desc()).limit(80).all()
+    candidate_jobs = db.query(Job).order_by(Job.posted_date.desc()).limit(200).all()
     matching_jobs = []
     for job in candidate_jobs:
         job_skill_names = [js.skill.name for js in job.job_skills if js.skill]
@@ -262,6 +262,8 @@ def analyze_cv_and_match(
                 "sector": job.sector,
                 "remote_type": job.remote_type,
                 "posted_date": str(job.posted_date),
+                "source_name": job.source_name,
+                "source_url": job.source_url,
                 "skill_alignment_score": job_score,
                 "matched_skills": overlap,
                 "missing_skills": missing_for_job,

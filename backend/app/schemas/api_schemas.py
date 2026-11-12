@@ -34,6 +34,7 @@ class JobResponse(BaseModel):
     currency: str
     posted_date: date
     source_name: str
+    source_url: Optional[str] = None
     predicted_category: Optional[str] = None
     is_demo: bool
     skills: List[str] = Field(default_factory=list)

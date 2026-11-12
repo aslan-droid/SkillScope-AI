@@ -14,12 +14,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Filter, RotateCcw, Wallet } from 'lucide-react';
+import { ExternalLink, Filter, MapPin, RotateCcw, Wallet } from 'lucide-react';
 import { api } from '../services/api';
-import type { MarketAnalytics } from '../types';
+import type { JobSummaryItem, MarketAnalytics } from '../types';
 import { EmptyState, ErrorBanner, LoadingSpinner } from '../components/StatusUI';
 
-const COLORS = ['#6366F1', '#06B6D4', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#3B82F6'];
+const COLORS = ['#2563EB', '#0D9488', '#4F46E5', '#059669', '#D97706', '#DC2626', '#0284C7'];
 
 export const MarketAnalysisPage: React.FC = () => {
   const [city, setCity] = useState('Tümü');
@@ -30,8 +30,13 @@ export const MarketAnalysisPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [includeDemo, setIncludeDemo] = useState(true);
+  const [jobPage, setJobPage] = useState(1);
 
   const [data, setData] = useState<MarketAnalytics | null>(null);
+  const [jobsList, setJobsList] = useState<{ total: number; items: JobSummaryItem[] }>({
+    total: 0,
+    items: [],
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,17 +44,30 @@ export const MarketAnalysisPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getMarketAnalytics({
-        city,
-        role,
-        sector,
-        skill,
-        remote_type: remoteType,
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
-        include_demo: includeDemo,
-      });
+      const [res, jobsRes] = await Promise.all([
+        api.getMarketAnalytics({
+          city,
+          role,
+          sector,
+          skill,
+          remote_type: remoteType,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+          include_demo: includeDemo,
+        }),
+        api.listJobs({
+          city,
+          role,
+          sector,
+          skill,
+          remote_type: remoteType,
+          include_demo: includeDemo,
+          page: jobPage,
+          page_size: 12,
+        }),
+      ]);
       setData(res);
+      setJobsList({ total: jobsRes.total, items: jobsRes.items });
     } catch (err: any) {
       setError(err.message || 'İş piyasası analiz verileri alınamadı.');
     } finally {
@@ -58,8 +76,12 @@ export const MarketAnalysisPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadMarketData();
+    setJobPage(1);
   }, [city, role, sector, skill, remoteType, dateFrom, dateTo, includeDemo]);
+
+  useEffect(() => {
+    loadMarketData();
+  }, [city, role, sector, skill, remoteType, dateFrom, dateTo, includeDemo, jobPage]);
 
   const resetFilters = () => {
     setCity('Tümü');
@@ -430,6 +452,102 @@ export const MarketAnalysisPage: React.FC = () => {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+          </div>
+
+          {/* Clickable Real Job Listings */}
+          <div className="rounded-2xl bg-white dark:bg-navy-900 p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Filtrelenen İş İlanları ve Başvuru Bağlantıları ({jobsList.total} İlan)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Seçili şehir, pozisyon ve beceri kriterlerine uyan ilanları doğrudan kaynağında inceleyebilirsiniz.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  disabled={jobPage <= 1}
+                  onClick={() => setJobPage((p) => Math.max(1, p - 1))}
+                  className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-navy-800 transition"
+                >
+                  Önceki
+                </button>
+                <span className="px-2 font-mono text-slate-600 dark:text-slate-300 tabular-nums">
+                  Sayfa {jobPage} / {Math.max(1, Math.ceil(jobsList.total / 12))}
+                </span>
+                <button
+                  type="button"
+                  disabled={jobPage * 12 >= jobsList.total}
+                  onClick={() => setJobPage((p) => p + 1)}
+                  className="min-h-[40px] px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-navy-800 transition"
+                >
+                  Sonraki
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {jobsList.items.map((job) => (
+                <div
+                  key={job.id}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-navy-950/60 flex flex-col justify-between gap-3"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                        {job.job_title}
+                      </h4>
+                      <span className="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-200/80 dark:bg-navy-800 text-slate-700 dark:text-slate-300">
+                        {job.remote_type}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{job.company_name}</span>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 text-brand-teal" />
+                        {job.location}
+                      </span>
+                      <span>•</span>
+                      <span className="tabular-nums">{job.posted_date}</span>
+                    </div>
+                    {job.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {job.skills.slice(0, 5).map((sk) => (
+                          <span
+                            key={sk}
+                            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                          >
+                            {sk}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 dark:border-slate-800/70">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {job.source_name || job.sector}
+                    </span>
+                    {job.source_url ? (
+                      <a
+                        href={job.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-lg bg-brand-purple text-white text-xs font-semibold hover:bg-blue-700 transition shrink-0"
+                      >
+                        <span>İlana Git</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">Bağlantı yok</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </>

@@ -39,6 +39,8 @@ export interface JobSummaryItem {
   sector: string;
   remote_type: string;
   posted_date: string;
+  source_name?: string;
+  source_url?: string | null;
   predicted_category?: string;
   is_demo: boolean;
   skills: string[];
@@ -215,6 +217,8 @@ export interface CVAnalysisResult {
     sector: string;
     remote_type: string;
     posted_date: string;
+    source_name?: string;
+    source_url?: string | null;
     skill_alignment_score: number;
     matched_skills: string[];
     missing_skills: string[];

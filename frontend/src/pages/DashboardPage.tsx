@@ -88,7 +88,7 @@ export const DashboardPage: React.FC = () => {
       <SyntheticDataBanner demoCount={data.demo_jobs_count} realCount={data.real_jobs_count} />
 
       {/* Top Controls Bar & İBE Hızlı Akış */}
-      <div className="rounded-2xl bg-gradient-to-r from-white via-white to-indigo-50/60 dark:from-navy-900 dark:via-navy-900 dark:to-indigo-950/30 p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-xs space-y-4">
+      <div className="rounded-2xl bg-white dark:bg-navy-900 p-5 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
             <div className="p-2 rounded-xl bg-brand-purple/10 text-brand-purple">

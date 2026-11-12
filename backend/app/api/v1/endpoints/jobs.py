@@ -30,6 +30,7 @@ def _serialize_job(job: Job) -> JobResponse:
         currency=job.currency,
         posted_date=job.posted_date,
         source_name=job.source_name,
+        source_url=job.source_url,
         predicted_category=job.predicted_category,
         is_demo=job.is_demo,
         skills=[js.skill.name for js in job.job_skills if js.skill],

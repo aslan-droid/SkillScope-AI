@@ -39,6 +39,7 @@ export const CareerMatchingPage: React.FC = () => {
 
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [analysisResult, setAnalysisResult] = useState<CVAnalysisResult | null>(null);
+  const [selectedJobCity, setSelectedJobCity] = useState<string>('Tümü');
   const [roadmap, setRoadmap] = useState<CareerRoadmapResponse | null>(null);
 
   const [loadingCV, setLoadingCV] = useState(false);
@@ -462,39 +463,118 @@ export const CareerMatchingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Matching Job Postings */}
-          <div className="space-y-3 pt-2 border-t border-slate-200/70 dark:border-slate-800">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              Becerilerinizle En Çok Örtüşen İş İlanları
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {analysisResult.matching_jobs.slice(0, 6).map((j) => (
-                <div
-                  key={j.id}
-                  className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/50 space-y-1.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{j.job_title}</span>
-                    <span className="text-xs font-extrabold text-brand-teal shrink-0">
-                      %{j.skill_alignment_score} Uyum
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {j.company_name} • {j.location} ({j.remote_type})
-                  </div>
-                  <div className="text-[11px]">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      Eşleşen: {j.matched_skills.join(', ') || 'Yok'}
-                    </span>
-                    {j.missing_skills.length > 0 && (
-                      <span className="text-amber-600 dark:text-amber-400 ml-2">
-                        • Eksik: {j.missing_skills.slice(0, 4).join(', ')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Matching Job Postings (Şehre Göre Filtrelenebilir & Doğrudan Başvuru Linkli) */}
+          <div className="space-y-3 pt-4 border-t border-slate-200/70 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Becerilerinizle Örtüşen Piyasa İlanları ({analysisResult.matching_jobs.length} İlan)
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Şehre göre filtreleyebilir ve uygun gördüğünüz ilanın kaynağına tek tıkla gidebilirsiniz.
+                </p>
+              </div>
             </div>
+
+            {/* City Filter Pills */}
+            {(() => {
+              const cityCounts: Record<string, number> = {};
+              analysisResult.matching_jobs.forEach((j) => {
+                cityCounts[j.location] = (cityCounts[j.location] || 0) + 1;
+              });
+              const cityOptions = Object.entries(cityCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+              const filteredJobs =
+                selectedJobCity === 'Tümü'
+                  ? analysisResult.matching_jobs
+                  : analysisResult.matching_jobs.filter((j) => j.location === selectedJobCity);
+
+              return (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedJobCity('Tümü')}
+                      className={`min-h-[36px] px-3 rounded-lg text-xs font-semibold transition ${
+                        selectedJobCity === 'Tümü'
+                          ? 'bg-brand-purple text-white'
+                          : 'bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-navy-700'
+                      }`}
+                    >
+                      Tümü ({analysisResult.matching_jobs.length})
+                    </button>
+                    {cityOptions.map(([cityName, count]) => (
+                      <button
+                        key={cityName}
+                        type="button"
+                        onClick={() => setSelectedJobCity(cityName)}
+                        className={`min-h-[36px] px-3 rounded-lg text-xs font-medium transition ${
+                          selectedJobCity === cityName
+                            ? 'bg-brand-purple text-white font-semibold'
+                            : 'bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-navy-700'
+                        }`}
+                      >
+                        {cityName} ({count})
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {filteredJobs.slice(0, 12).map((j) => (
+                      <div
+                        key={j.id}
+                        className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-navy-950/60 flex flex-col justify-between gap-2.5"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                              {j.job_title}
+                            </span>
+                            <span className="text-xs font-extrabold text-brand-teal shrink-0 tabular-nums">
+                              %{j.skill_alignment_score} Uyum
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            <strong className="text-slate-700 dark:text-slate-300">{j.company_name}</strong> •{' '}
+                            {j.location} ({j.remote_type})
+                          </div>
+                          <div className="text-[11px] leading-relaxed">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                              Eşleşen: {j.matched_skills.join(', ') || 'Yok'}
+                            </span>
+                            {j.missing_skills.length > 0 && (
+                              <span className="text-amber-600 dark:text-amber-400 ml-2">
+                                • Eksik: {j.missing_skills.slice(0, 4).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 dark:border-slate-800/70">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            {j.source_name || j.posted_date}
+                          </span>
+                          {j.source_url ? (
+                            <a
+                              href={j.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 min-h-[34px] px-3 rounded-lg bg-brand-purple text-white text-xs font-semibold hover:bg-blue-700 transition shrink-0"
+                            >
+                              <span>İlana Git</span>
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">Bağlantı yok</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
